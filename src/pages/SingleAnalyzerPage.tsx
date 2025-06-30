@@ -38,11 +38,17 @@ function SingleAnalyzerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('--- handleSubmit triggered ---');
+    console.log('Resume file:', resume);
+    console.log('Job Description:', jobDescription);
+
     if (!resume || !jobDescription) {
-      setError('Please upload your resume and paste the job description.');
+      console.error('Validation failed: Missing resume or job description.');
+      setError('Please upload your resume AND paste the job description.');
       return;
     }
 
+    console.log('Validation passed. Setting loading state.');
     setLoading(true);
     setError('');
     setAnalysis(null);
@@ -52,21 +58,37 @@ function SingleAnalyzerPage() {
     formData.append('jobDescription', jobDescription);
 
     try {
+      console.log('Sending request to /api/analyze...');
       const response = await fetch('/api/analyze', {
         method: 'POST',
         body: formData,
       });
 
+      console.log('Received response from server:', response);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Something went wrong with the analysis.');
+        const errorText = await response.text();
+        console.error("Server error response:", errorText);
+        try {
+          // Try to parse it as JSON, as a structured error is still possible
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Something went wrong with the analysis.');
+        } catch (jsonError) {
+          // If it's not JSON, it might be an HTML error page or plain text
+          throw new Error(`Server returned an error: ${response.status} ${response.statusText}. Check console for details.`);
+        }
       }
 
+      console.log('Response is OK. Parsing JSON...');
       const data = await response.json();
+      console.log('Analysis data received:', data);
       setAnalysis(data);
     } catch (err) {
+      console.error('--- CATCH BLOCK ERROR ---');
+      console.error(err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
+      console.log('--- FINALLY BLOCK ---');
       setLoading(false);
     }
   };
